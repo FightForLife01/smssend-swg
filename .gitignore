@@ -1,0 +1,35 @@
+# ==== Python build artifacts ====
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# ==== Virtualenv ====
+.venv/
+venv/
+env/
+
+# ==== Config & secrets ====
+.env
+.env.*
+*.env
+
+# ==== Local data ====
+data/app.db
+data/*.db
+data/tmp/
+*.sqlite
+*.sqlite3
+
+# ==== Logs ====
+*.log
+logs/
+
+# ==== Editor / IDE ====
+.vscode/
+.idea/
+*.code-workspace
+
+# ==== OS files ====
+.DS_Store
+Thumbs.db

@@ -1,0 +1,503 @@
+:root {
+  --bg: #070b13;
+  --bg-card: #0f172a;
+  --bg-card-soft: #111827;
+  --border-soft: #1f2937;
+  --accent: #3b82f6;
+  --accent-soft: #1d4ed8;
+  --accent-danger: #ef4444;
+  --text: #e5e7eb;
+  --text-muted: #9ca3af;
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.65);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1e293b 0, #020617 45%, #000 100%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(120deg, rgba(15,23,42,0.95), rgba(30,64,175,0.45));
+  box-shadow: var(--shadow-soft);
+}
+
+.logo {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.user-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(148, 163, 184, 0.09);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.hint {
+  margin: 0 0 10px 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="number"],
+.form-group input[type="file"] {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: var(--bg-card-soft);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.form-group input:focus {
+  outline: 1px solid var(--accent);
+}
+
+.form-group.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.btn {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: var(--bg-card-soft);
+  color: var(--text);
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #f9fafb;
+}
+
+.btn.primary:hover {
+  background: var(--accent-soft);
+}
+
+.btn.secondary {
+  background: #111827;
+}
+
+.btn-small {
+  font-size: 0.75rem;
+  padding: 6px 10px;
+}
+
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* Icon-style buttons (Edit / Delete etc.) */
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 999px;
+}
+
+.btn-icon-symbol {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.btn-icon-label {
+  line-height: 1;
+}
+
+/* Color semantic pentru Delete */
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Toggle PNK (text + săgeată) – stil premium */
+
+#btn-product-links-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.65);
+  background: rgba(37, 99, 235, 0.12);
+  color: #dbeafe;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.6);
+}
+
+#btn-product-links-toggle:hover {
+  background: rgba(37, 99, 235, 0.2);
+}
+
+#btn-product-links-toggle::after {
+  content: "▼";
+  font-size: 0.7rem;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  opacity: 0.9;
+}
+
+#btn-product-links-toggle.expanded::after {
+  content: "▲";
+}
+
+/* Tabs */
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tab {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  background: #020617;
+  color: var(--text-muted);
+}
+
+.tab.active {
+  background: var(--accent);
+  color: #f9fafb;
+}
+
+.layout-three-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Tabel comenzi */
+
+.table-wrapper {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  overflow: auto;
+  max-height: 420px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  background: #020617;
+  z-index: 1;
+}
+
+th,
+td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #111827;
+}
+
+th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+tbody tr:nth-child(odd) {
+  background: #020617;
+}
+
+tbody tr:nth-child(even) {
+  background: #02051a;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+
+.badge.ok {
+  background: rgba(22, 163, 74, 0.12);
+  color: #22c55e;
+}
+
+.badge.warn {
+  background: rgba(234, 179, 8, 0.12);
+  color: #eab308;
+}
+
+.badge.err {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+/* Status bar */
+
+.status-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 8px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.status-bar-inner {
+  max-width: 600px;
+  width: 100%;
+  margin: 0 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text);
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.status-bar-inner.error {
+  border: 1px solid rgba(248, 113, 113, 0.5);
+}
+
+.status-bar-inner.success {
+  border: 1px solid rgba(34, 197, 94, 0.5);
+}
+
+/* SMS info */
+
+.sms-info {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.sms-info p {
+  margin: 2px 0;
+}
+
+/* Doc card */
+
+.doc-card {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #020617;
+  border: 1px solid var(--border-soft);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.doc-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.doc-card ul {
+  padding-left: 18px;
+  margin: 0 0 8px 0;
+}
+
+.doc-card li {
+  margin-bottom: 4px;
+}
+
+/* PNK → URL row */
+
+.product-link-form {
+  margin-top: 8px;
+}
+
+.product-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.product-link-pnk {
+  flex: 0 0 130px;
+}
+
+.product-link-equal {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.product-link-url {
+  flex: 1 1 auto;
+}
+
+/* PNK list toggle & list */
+
+.product-links-toggle-row {
+  margin-top: 8px;
+}
+
+.product-links-list {
+  margin-top: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  background: #020617;
+}
+
+.product-links-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #111827;
+}
+
+.product-links-list-item:last-child {
+  border-bottom: none;
+}
+
+.product-links-list-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-links-list-item-code {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.product-links-list-item-url {
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.product-links-list-item-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+}
+
+/* Helpers */
+
+.hidden {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  #app {
+    padding: 24px;
+  }
+
+  .app-main {
+    gap: 20px;
+  }
+
+  .layout-three-columns {
+    flex-direction: row;
+  }
+
+  .layout-three-columns .card {
+    flex: 1;
+  }
+
+  .product-links-list-item-actions {
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 767px) {
+  .product-links-list-item-actions {
+    flex-direction: column;
+  }
+}
