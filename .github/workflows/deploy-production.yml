@@ -1,0 +1,11 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, staging]
+    steps:
+      - name: Deploy PROD via SSH (forced command)
+        run: ssh -i /home/deploy/.ssh/prod_deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new deploy@145.223.81.39
