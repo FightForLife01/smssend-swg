@@ -1,0 +1,16 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, staging]
+    steps:
+      - name: Deploy on VPS
+        run: sudo /usr/local/bin/deploy_staging.sh
