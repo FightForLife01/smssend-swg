@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from ..models import User
 from ..schemas import SmsSettingsIn, SmsSettingsOut, SmsBalanceOut
-from .auth import get_current_user, get_db
+from ..deps.auth import get_current_user
+from ..deps.db import get_db
 from ..services.audit import create_audit_log
 from ..services.sms_service import get_sms_balance_for_user
 
@@ -31,15 +32,11 @@ def update_sms_settings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    token = data.token.strip()
+    # token poate fi None/"" dacă userul nu vrea să îl schimbe
+    token = (data.token or "").strip()
     sender = data.sender.strip()
     company_name = data.company_name.strip()
 
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token SMSAPI nu poate fi gol.",
-        )
     if not sender:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -51,7 +48,15 @@ def update_sms_settings(
             detail="Numele firmei pentru SMS nu poate fi gol.",
         )
 
-    current_user.smsapi_token = token
+    # Token obligatoriu doar dacă nu există deja salvat
+    if token:
+        current_user.smsapi_token = token
+    elif not current_user.smsapi_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token SMSAPI este obligatoriu prima dată.",
+        )
+
     current_user.smsapi_sender = sender
     current_user.sms_company_name = company_name
     db.commit()
@@ -62,13 +67,17 @@ def update_sms_settings(
         "UPDATE_SMS_SETTINGS",
         current_user.id,
         request,
-        details={"sender": sender, "company_name": company_name},
+        details={
+            "sender": sender,
+            "company_name": company_name,
+            "token_updated": bool(token),
+        },
     )
 
     return SmsSettingsOut(
-        has_token=True,
-        sender=sender,
-        company_name=company_name,
+        has_token=bool(current_user.smsapi_token),
+        sender=current_user.smsapi_sender,
+        company_name=current_user.sms_company_name,
     )
 
 

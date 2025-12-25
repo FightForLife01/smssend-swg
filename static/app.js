@@ -1,12 +1,22 @@
 // FILE: static/app.js
+// Scop:
+//   - UI fără XSS (fără innerHTML pentru mesaje).
+//   - Auth: access token în memorie + refresh token HttpOnly cookie.
+//   - Auto-refresh: dacă API răspunde 401, încercăm /api/auth/refresh o singură dată.
+//
+// Debug:
+//   - Dacă refresh nu merge: verifică fetch credentials: "include" + COOKIE_SECURE=false în dev (http).
 
 let accessToken = null;
+let refreshInFlight = null;
 
 // Elemente din DOM
 const authSection = document.getElementById("auth-section");
 const appSection = document.getElementById("app-section");
 const userInfoEl = document.getElementById("user-info");
 const statusBar = document.getElementById("status-bar");
+
+const btnLogout = document.getElementById("btn-logout");
 
 const tabLogin = document.getElementById("tab-login");
 const tabRegister = document.getElementById("tab-register");
@@ -16,9 +26,19 @@ const loginEmail = document.getElementById("login-email");
 const loginPassword = document.getElementById("login-password");
 
 const registerForm = document.getElementById("register-form");
-const registerName = document.getElementById("register-name");
+const registerFirstName = document.getElementById("register-first-name");
+const registerLastName = document.getElementById("register-last-name");
 const registerEmail = document.getElementById("register-email");
 const registerPassword = document.getElementById("register-password");
+const registerPassword2 = document.getElementById("register-password2");
+const registerCompanyName = document.getElementById("register-company-name");
+const registerCompanyCui = document.getElementById("register-company-cui");
+const registerStreet = document.getElementById("register-street");
+const registerStreetNo = document.getElementById("register-street-no");
+const registerLocality = document.getElementById("register-locality");
+const registerCounty = document.getElementById("register-county");
+const registerPostal = document.getElementById("register-postal");
+const registerCountry = document.getElementById("register-country");
 const registerPolicy = document.getElementById("register-policy");
 
 const uploadForm = document.getElementById("upload-form");
@@ -49,17 +69,29 @@ const productLinkUrlInput = document.getElementById("product-link-url");
 const productLinksListEl = document.getElementById("product-links-list");
 const btnProductLinksToggle = document.getElementById("btn-product-links-toggle");
 
-// ---------- Helpers UI ----------
+// ---------- Helpers UI (anti-XSS) ----------
 
 function showStatus(message, type = "info", timeout = 4000) {
   if (!statusBar) return;
 
-  statusBar.innerHTML = `
-    <div class="status-bar-inner ${type === "error" ? "error" : "success"}">
-      <span>${message}</span>
-      <button class="btn secondary" style="pointer-events:auto;" onclick="(function(){document.getElementById('status-bar').innerHTML='';})();">Închide</button>
-    </div>
-  `;
+  statusBar.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = `status-bar-inner ${type === "error" ? "error" : "success"}`;
+
+  const msg = document.createElement("span");
+  msg.textContent = String(message || "");
+  wrap.appendChild(msg);
+
+  const btn = document.createElement("button");
+  btn.className = "btn secondary";
+  btn.style.pointerEvents = "auto";
+  btn.textContent = "Închide";
+  btn.addEventListener("click", () => {
+    statusBar.innerHTML = "";
+  });
+  wrap.appendChild(btn);
+
+  statusBar.appendChild(wrap);
 
   if (timeout > 0) {
     setTimeout(() => {
@@ -71,8 +103,10 @@ function showStatus(message, type = "info", timeout = 4000) {
 function setLoggedInUser(user) {
   if (user && user.email) {
     userInfoEl.textContent = `Logat ca: ${user.email}`;
+    if (btnLogout) btnLogout.classList.remove("hidden");
   } else {
     userInfoEl.textContent = "";
+    if (btnLogout) btnLogout.classList.add("hidden");
   }
 }
 
@@ -102,7 +136,41 @@ function setAuthState(isAuthenticated) {
   }
 }
 
-// ---------- Fetch helper ----------
+// ---------- Fetch helper + auto-refresh ----------
+
+async function tryRefresh() {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const resp = await fetch("/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const text = await resp.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (e) {
+      data = null;
+    }
+
+    if (!resp.ok) {
+      accessToken = null;
+      setAuthState(false);
+      throw new Error("Sesiune expirată. Te rugăm să te autentifici din nou.");
+    }
+
+    accessToken = data.access_token;
+    setLoggedInUser(data.user);
+    return true;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
 
 async function apiFetch(path, options = {}) {
   const url = path.startsWith("http") ? path : path;
@@ -118,6 +186,7 @@ async function apiFetch(path, options = {}) {
   const finalOptions = {
     ...options,
     headers,
+    credentials: "include",
   };
 
   const resp = await fetch(url, finalOptions);
@@ -128,6 +197,12 @@ async function apiFetch(path, options = {}) {
     data = text ? JSON.parse(text) : null;
   } catch (e) {
     data = text;
+  }
+
+  // Auto-refresh pe 401 (o singură dată)
+  if (resp.status === 401 && accessToken && !options.__noRetry) {
+    await tryRefresh();
+    return apiFetch(path, { ...options, __noRetry: true });
   }
 
   if (!resp.ok) {
@@ -150,35 +225,67 @@ tabRegister.addEventListener("click", () => switchTab("register"));
 
 registerForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+
   try {
     if (!registerPolicy.checked) {
       showStatus("Trebuie să accepți politica aplicației.", "error");
       return;
     }
 
+    const companyName = (registerCompanyName.value || "").trim();
+    const companyCui = (registerCompanyCui.value || "").trim();
+
+    if ((companyName && !companyCui) || (!companyName && companyCui)) {
+      showStatus("Dacă introduci firma, CUI este obligatoriu (și invers).", "error");
+      return;
+    }
+
+    if (registerPassword.value !== registerPassword2.value) {
+      showStatus("Parolele nu coincid.", "error");
+      return;
+    }
+
     const body = {
       email: registerEmail.value.trim(),
-      name: registerName.value.trim(),
+      first_name: registerFirstName.value.trim(),
+      last_name: registerLastName.value.trim(),
+
+      company_name: companyName || null,
+      company_cui: companyCui || null,
+
+      street: registerStreet.value.trim(),
+      street_no: registerStreetNo.value.trim(),
+      locality: registerLocality.value.trim(),
+      county: registerCounty.value.trim(),
+      postal_code: registerPostal.value.trim(),
+      country: registerCountry.value.trim(),
+
       password: registerPassword.value,
+      confirm_password: registerPassword2.value,
+
       accept_policy: true,
     };
 
-    await apiFetch("/api/auth/register", {
+    const out = await apiFetch("/api/auth/register", {
       method: "POST",
       body: JSON.stringify(body),
     });
 
-    showStatus("Cont creat. Te poți autentifica acum.", "success");
+    showStatus(out.message || "Cont creat. Verifică emailul.", "success", 7000);
     switchTab("login");
-    loginEmail.value = registerEmail.value;
+
+    // UX
+    loginEmail.value = registerEmail.value.trim();
     registerPassword.value = "";
+    registerPassword2.value = "";
   } catch (err) {
-    showStatus(err.message || "Eroare la înregistrare.", "error");
+    showStatus(err.message || "Eroare la înregistrare.", "error", 8000);
   }
 });
 
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+
   try {
     const body = {
       email: loginEmail.value.trim(),
@@ -193,14 +300,53 @@ loginForm.addEventListener("submit", async (e) => {
     accessToken = data.access_token;
     setLoggedInUser(data.user);
     setAuthState(true);
+
     showStatus("Autentificare reușită.", "success");
     await loadOrders();
     await loadSmsDashboard();
     await loadProductLinks();
   } catch (err) {
-    showStatus(err.message || "Eroare la login.", "error");
+    showStatus(err.message || "Eroare la login.", "error", 8000);
   }
 });
+
+if (btnLogout) {
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST", __noRetry: true });
+    } catch (_) {}
+    accessToken = null;
+    setAuthState(false);
+    showStatus("Logout reușit.", "success");
+  });
+}
+
+// ---------- SMS settings (LIPSEA în proiect) ----------
+
+if (smsSettingsForm) {
+  smsSettingsForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    try {
+      const body = {
+        token: (smsTokenInput.value || "").trim() || null,
+        sender: (smsSenderInput.value || "").trim(),
+        company_name: (smsCompanyInput.value || "").trim(),
+      };
+
+      await apiFetch("/api/settings/sms", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      smsTokenInput.value = "";
+      showStatus("Setări SMS salvate.", "success");
+      await loadSmsDashboard();
+    } catch (err) {
+      showStatus(err.message || "Eroare la salvarea setărilor SMS.", "error", 8000);
+    }
+  });
+}
 
 // ---------- Upload Excel ----------
 
@@ -347,7 +493,7 @@ function renderOrders(data) {
     const btnSms = document.createElement("button");
     btnSms.textContent = "Trimite SMS";
     btnSms.classList.add("btn", "secondary");
-    btnSms.onclick = () => sendSmsForOrder(o.id);
+    btnSms.addEventListener("click", () => sendSmsForOrder(o.id));
     tdSms.appendChild(btnSms);
     tr.appendChild(tdSms);
 
@@ -392,13 +538,9 @@ async function loadSmsSettings() {
     smsTokenInput.value = "";
     smsCompanyInput.value = cfg.company_name || "";
     if (cfg.has_token) {
-      smsTokenInput.placeholder =
-        "Token deja salvat (lasă gol dacă nu vrei să îl schimbi)";
+      smsTokenInput.placeholder = "Token deja salvat (lasă gol dacă nu vrei să îl schimbi)";
     } else {
       smsTokenInput.placeholder = "Introdu tokenul API din contul tău SMSAPI.ro";
-    }
-    if (!cfg.company_name) {
-      smsCompanyInput.placeholder = "Adaugă numele firmei tale (obligatoriu pentru SMS)";
     }
   } catch (err) {
     showStatus(err.message || "Nu pot încărca setările SMS.", "error", 4000);
@@ -410,16 +552,12 @@ async function loadSmsBalanceAndStats() {
     const balance = await apiFetch("/api/settings/sms/balance", { method: "GET" });
     if (balance.ok) {
       smsBalancePointsEl.textContent =
-        balance.points !== null && balance.points !== undefined
-          ? String(balance.points)
-          : "-";
+        balance.points !== null && balance.points !== undefined ? String(balance.points) : "-";
     } else {
       smsBalancePointsEl.textContent = "-";
-      if (balance.error) {
-        showStatus(balance.error, "error", 4000);
-      }
+      if (balance.error) showStatus(balance.error, "error", 4000);
     }
-  } catch (err) {
+  } catch (_) {
     smsBalancePointsEl.textContent = "-";
   }
 
@@ -427,7 +565,7 @@ async function loadSmsBalanceAndStats() {
     const stats = await apiFetch("/api/sms/stats", { method: "GET" });
     smsTotalSentEl.textContent = String(stats.total_sent_success);
     smsTotalErrorsEl.textContent = String(stats.total_sent_error);
-  } catch (err) {
+  } catch (_) {
     smsTotalSentEl.textContent = "-";
     smsTotalErrorsEl.textContent = "-";
   }
@@ -477,49 +615,27 @@ async function loadProductLinks() {
       const actions = document.createElement("div");
       actions.classList.add("product-links-list-item-actions");
 
-      // Editează
       const btnEdit = document.createElement("button");
       btnEdit.classList.add("btn", "secondary", "btn-small", "btn-icon");
-      const editIcon = document.createElement("span");
-      editIcon.classList.add("btn-icon-symbol");
-      editIcon.textContent = "✏";
-      const editLabel = document.createElement("span");
-      editLabel.classList.add("btn-icon-label");
-      editLabel.textContent = "Editează";
-      btnEdit.appendChild(editIcon);
-      btnEdit.appendChild(editLabel);
-      btnEdit.onclick = () => {
+      btnEdit.textContent = "Editează";
+      btnEdit.addEventListener("click", () => {
         productLinkPnkInput.value = l.pnk;
         productLinkUrlInput.value = l.review_url;
-      };
+      });
 
-      // Șterge
       const btnDelete = document.createElement("button");
       btnDelete.classList.add("btn", "btn-small", "btn-icon", "btn-danger");
-      const delIcon = document.createElement("span");
-      delIcon.classList.add("btn-icon-symbol");
-      delIcon.textContent = "🗑";
-      const delLabel = document.createElement("span");
-      delLabel.classList.add("btn-icon-label");
-      delLabel.textContent = "Șterge";
-      btnDelete.appendChild(delIcon);
-      btnDelete.appendChild(delLabel);
-      btnDelete.onclick = async () => {
+      btnDelete.textContent = "Șterge";
+      btnDelete.addEventListener("click", async () => {
         if (!confirm(`Ștergi maparea pentru PNK ${l.pnk}?`)) return;
         try {
-          await apiFetch(`/api/product-links/${encodeURIComponent(l.pnk)}`, {
-            method: "DELETE",
-          });
+          await apiFetch(`/api/product-links/${encodeURIComponent(l.pnk)}`, { method: "DELETE" });
           showStatus(`Mapare PNK ${l.pnk} ștearsă.`, "success");
           await loadProductLinks();
         } catch (err) {
-          showStatus(
-            err.message || "Eroare la ștergerea mapării PNK.",
-            "error",
-            6000
-          );
+          showStatus(err.message || "Eroare la ștergerea mapării PNK.", "error", 6000);
         }
-      };
+      });
 
       actions.appendChild(btnEdit);
       actions.appendChild(btnDelete);
@@ -529,7 +645,7 @@ async function loadProductLinks() {
 
       productLinksListEl.appendChild(row);
     });
-  } catch (err) {
+  } catch (_) {
     productLinksListEl.innerHTML = "";
     const p = document.createElement("p");
     p.classList.add("hint");
@@ -544,20 +660,13 @@ if (productLinkForm) {
     const pnk = (productLinkPnkInput.value || "").trim().toUpperCase();
     const url = (productLinkUrlInput.value || "").trim();
 
-    if (!pnk) {
-      showStatus("PNK nu poate fi gol.", "error");
-      return;
-    }
-    if (!url) {
-      showStatus("URL de recenzie nu poate fi gol.", "error");
-      return;
-    }
+    if (!pnk) return showStatus("PNK nu poate fi gol.", "error");
+    if (!url) return showStatus("URL de recenzie nu poate fi gol.", "error");
 
     try {
-      const body = { pnk, review_url: url };
       await apiFetch("/api/product-links", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify({ pnk, review_url: url }),
       });
       showStatus("Mapare PNK → URL salvată.", "success");
       productLinkPnkInput.value = "";
@@ -587,16 +696,8 @@ if (btnProductLinksToggle && productLinksListEl) {
 
 // ---------- Doc card SMSAPI ----------
 
-if (btnShowSmsDoc && smsDocCard) {
-  btnShowSmsDoc.addEventListener("click", () => {
-    smsDocCard.classList.remove("hidden");
-  });
-}
-if (btnCloseSmsDoc && smsDocCard) {
-  btnCloseSmsDoc.addEventListener("click", () => {
-    smsDocCard.classList.add("hidden");
-  });
-}
+if (btnShowSmsDoc && smsDocCard) btnShowSmsDoc.addEventListener("click", () => smsDocCard.classList.remove("hidden"));
+if (btnCloseSmsDoc && smsDocCard) btnCloseSmsDoc.addEventListener("click", () => smsDocCard.classList.add("hidden"));
 
 // ---------- Bootstrap ----------
 

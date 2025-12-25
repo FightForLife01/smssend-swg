@@ -10,7 +10,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..models import User, Order, SmsLog, ProductLink
-from .auth import get_current_user, get_db
+from ..deps.auth import get_current_user
+from ..deps.db import get_db
 from ..services.sms_service import send_sms_for_order
 from ..services.audit import create_audit_log
 from ..schemas import SmsStatsOut

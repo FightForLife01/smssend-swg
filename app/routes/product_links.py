@@ -11,12 +11,13 @@ from sqlalchemy.orm import Session
 
 from ..models import User, ProductLink
 from ..schemas import ProductLinkIn, ProductLinkOut, ProductLinksListOut
-from .auth import get_current_user, get_db
+from ..deps.auth import get_current_user
+from ..deps.db import get_db
 
 router = APIRouter(prefix="/api/product-links", tags=["product-links"])
 
 
-def _validate_pnk(pnk: str):
+def _validate_pnk(pnk: str) -> None:
     if not pnk:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -29,7 +30,7 @@ def _validate_pnk(pnk: str):
         )
 
 
-def _validate_url(url: str):
+def _validate_url(url: str) -> None:
     if not url.startswith("http://") and not url.startswith("https://"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -64,7 +65,9 @@ def list_product_links(
         .limit(10)
         .all()
     )
-    out = [ProductLinkOut.from_orm(l) for l in links]
+
+    # Pydantic v2: model_validate() în loc de from_orm()
+    out = [ProductLinkOut.model_validate(l) for l in links]
     return ProductLinksListOut(ok=True, links=out)
 
 
@@ -103,7 +106,7 @@ def upsert_product_link(
     db.commit()
     db.refresh(link)
 
-    return ProductLinkOut.from_orm(link)
+    return ProductLinkOut.model_validate(link)
 
 
 @router.delete("/{pnk}")

@@ -1,3 +1,4 @@
+<!-- FILE: static/index.html -->
 <!DOCTYPE html>
 <html lang="ro">
 <head>
@@ -11,6 +12,7 @@
     <header class="app-header">
       <div class="logo">SMSsend By SWG</div>
       <div class="user-info" id="user-info"></div>
+      <button type="button" class="btn secondary btn-small hidden" id="btn-logout">Logout</button>
     </header>
 
     <main class="app-main">
@@ -37,33 +39,90 @@
 
         <form id="register-form" class="form hidden">
           <div class="form-group">
-            <label>Nume</label>
-            <input type="text" id="register-name" required />
+            <label>Prenume</label>
+            <input type="text" id="register-first-name" required />
           </div>
+
+          <div class="form-group">
+            <label>Nume</label>
+            <input type="text" id="register-last-name" required />
+          </div>
+
           <div class="form-group">
             <label>Email</label>
             <input type="email" id="register-email" required />
           </div>
+
           <div class="form-group">
-            <label>Parolă (min. 8 caractere)</label>
-            <input type="password" id="register-password" required minlength="8" />
+            <label>Parolă (min. 12 caractere)</label>
+            <input type="password" id="register-password" required minlength="12" />
           </div>
+
+          <div class="form-group">
+            <label>Confirmă parola</label>
+            <input type="password" id="register-password2" required minlength="12" />
+          </div>
+
+          <hr style="border:0;border-top:1px solid rgba(148,163,184,0.15);" />
+
+          <div class="form-group">
+            <label>Firmă (opțional)</label>
+            <input type="text" id="register-company-name" placeholder="Numele firmei" />
+          </div>
+
+          <div class="form-group">
+            <label>CUI firmă (obligatoriu dacă ai firmă)</label>
+            <input type="text" id="register-company-cui" placeholder="RO12345678" />
+          </div>
+
+          <hr style="border:0;border-top:1px solid rgba(148,163,184,0.15);" />
+
+          <div class="form-group">
+            <label>Stradă</label>
+            <input type="text" id="register-street" required />
+          </div>
+
+          <div class="form-group">
+            <label>Nr.</label>
+            <input type="text" id="register-street-no" required />
+          </div>
+
+          <div class="form-group">
+            <label>Localitate</label>
+            <input type="text" id="register-locality" required />
+          </div>
+
+          <div class="form-group">
+            <label>Județ</label>
+            <input type="text" id="register-county" required />
+          </div>
+
+          <div class="form-group">
+            <label>Cod poștal</label>
+            <input type="text" id="register-postal" required />
+          </div>
+
+          <div class="form-group">
+            <label>Țară</label>
+            <input type="text" id="register-country" required placeholder="Romania / RO" />
+          </div>
+
           <div class="form-group checkbox">
             <input type="checkbox" id="register-policy" />
             <label for="register-policy">
               Confirm că am citit și accept politicile aplicației.
             </label>
           </div>
+
           <button type="submit" class="btn primary">Creează cont</button>
         </form>
       </section>
 
       <p class="hint" style="margin-top:8px;">
-  SMSsend By SWG este un instrument gratuit. Fiecare utilizator este responsabil legal
-  pentru textele trimise și destinatarii folosiți prin contul său. Prin crearea contului
-  confirmi că ai citit și accepți termenii și politicile aplicatiei.
-</p>
-
+        SMSsend By SWG este un instrument gratuit. Fiecare utilizator este responsabil legal
+        pentru textele trimise și destinatarii folosiți prin contul său. Prin crearea contului
+        confirmi că ai citit și accepți termenii și politicile aplicatiei.
+      </p>
 
       <!-- APP MAIN -->
       <section id="app-section" class="hidden">
@@ -103,29 +162,27 @@
             <p class="hint">
               Creează cont pe <strong>smsapi.ro</strong>, generează un token OAuth și setează expeditorul (sender).
             </p>
-            <!-- ... în cardul Setări SMSAPI, înlocuiești form-ul cu acesta ... -->
 
-<form id="sms-settings-form" class="form">
-  <div class="form-group">
-    <label>Token SMSAPI</label>
-    <input type="password" id="sms-token" autocomplete="off" />
-  </div>
-  <div class="form-group">
-    <label>Expeditor (sender)</label>
-    <input type="text" id="sms-sender" autocomplete="off" />
-  </div>
-  <div class="form-group">
-    <label>Numele firmei pentru SMS</label>
-    <input
-      type="text"
-      id="sms-company-name"
-      autocomplete="off"
-      placeholder="Adaugă numele firmei tale"
-    />
-  </div>
-  <button type="submit" class="btn primary">Salvează setările</button>
-</form>
-
+            <form id="sms-settings-form" class="form">
+              <div class="form-group">
+                <label>Token SMSAPI</label>
+                <input type="password" id="sms-token" autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <label>Expeditor (sender)</label>
+                <input type="text" id="sms-sender" autocomplete="off" />
+              </div>
+              <div class="form-group">
+                <label>Numele firmei pentru SMS</label>
+                <input
+                  type="text"
+                  id="sms-company-name"
+                  autocomplete="off"
+                  placeholder="Adaugă numele firmei tale"
+                />
+              </div>
+              <button type="submit" class="btn primary">Salvează setările</button>
+            </form>
 
             <div class="sms-info">
               <p>Credite SMSAPI (points): <span id="sms-balance-points">-</span></p>

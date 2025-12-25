@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..models import User, Order, SmsLog
 from ..schemas import OrdersListOut, OrderOut
-from .auth import get_current_user, get_db
+from ..deps.auth import get_current_user
+from ..deps.db import get_db
 from ..services.orders_import import import_orders_from_excel
 from ..services.audit import create_audit_log
 

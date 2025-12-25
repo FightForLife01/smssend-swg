@@ -1,28 +1,26 @@
 # FILE: app/security.py
 # Scop:
-#   - Gestionare parole (hash + verificare) folosind Argon2.
-#   - Generare și validare token-uri JWT pentru autentificare.
+#   - Parole: Argon2 + pepper (secret separat de DB).
+#   - JWT access token scurt (15m default), cu issuer/audience + jti.
+#   - Token hashing pentru refresh/verify (stocăm DOAR hash în DB).
 #
-# Mecanism:
-#   - hash_password(parola_raw) -> Argon2
-#   - verify_password(parola_raw, hash) -> True/False
-#
-# JWT:
-#   - HS256, secret din .env (JWT_SECRET)
-#   - expirare 12 ore (configurabilă)
+# Debug avansat:
+#   - verify_password suportă "legacy" (fără pepper) ca să nu-ți blochezi userii existenți.
+#   - dacă JWT decode eșuează frecvent, verifică JWT_SECRET + clock drift pe VPS.
 
-import os
+from __future__ import annotations
+
+import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Any, Dict
+from uuid import uuid4
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 
 from .config import settings
-
-# ==========================
-# Config parole – Argon2
-# ==========================
 
 pwd_context = CryptContext(
     schemes=["argon2"],
@@ -30,62 +28,127 @@ pwd_context = CryptContext(
 )
 
 
+def _pepper_password(password: str) -> str:
+    """
+    Concatenează pepper la parolă.
+    Pepper = secret din env (NU în DB).
+    """
+    if not isinstance(password, str):
+        password = str(password)
+    return f"{password}{settings.password_pepper}"
+
+
 def hash_password(password: str) -> str:
-  """
-  Generează hash pentru parolă folosind Argon2.
-  Acceptă parole lungi și complexe fără limitări artificiale.
-  """
-  if not isinstance(password, str):
-      password = str(password)
-  return pwd_context.hash(password)
+    """
+    Hash Argon2 pentru parolă, folosind pepper.
+    """
+    return pwd_context.hash(_pepper_password(password))
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-  """
-  Verifică o parolă brută față de hash-ul salvat.
-  """
-  if not isinstance(plain_password, str):
-      plain_password = str(plain_password)
-  return pwd_context.verify(plain_password, password_hash)
+    """
+    Verificare parolă cu fallback legacy (fără pepper).
+    Motiv:
+      - tranziție sigură pentru useri existenți.
+    """
+    try:
+        # Primul încercăm varianta nouă (cu pepper).
+        if settings.password_pepper and pwd_context.verify(_pepper_password(plain_password), password_hash):
+            return True
+    except Exception:
+        pass
+
+    # Legacy fallback (DB vechi, fără pepper).
+    try:
+        return pwd_context.verify(str(plain_password), password_hash)
+    except Exception:
+        return False
 
 
-# ==========================
-# Config JWT
-# ==========================
+def needs_password_rehash(password_hash: str) -> bool:
+    """
+    Dacă parametrii Argon2 s-au schimbat, putem rehash-ui la următorul login.
+    """
+    try:
+        return pwd_context.needs_update(password_hash)
+    except Exception:
+        return False
 
-JWT_SECRET = os.getenv("JWT_SECRET", "CHANGE_ME_IN_PROD")
+
 JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 12  # 12 ore
 
 
 def create_access_token(
     data: Dict[str, Any],
     expires_delta: Optional[timedelta] = None,
 ) -> str:
-  """
-  Creează un JWT cu payload-ul dat.
-  - data: dicționar cu câmpuri custom (ex: {"sub": user_id}).
-  - expires_delta: override pentru expirare; dacă nu, folosește 12h default.
-  """
-  to_encode = data.copy()
-  now = datetime.utcnow()
-  if expires_delta is None:
-      expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-  expire = now + expires_delta
+    """
+    Creează JWT access token.
+    În payload punem:
+      - sub: user_id
+      - jti: id unic (audit/revocare viitoare)
+      - iss/aud: protecție anti token reuse între sisteme
+      - iat/exp: timp
+    """
+    to_encode = dict(data)
+    now = datetime.utcnow()
 
-  to_encode.update({"exp": expire, "iat": now})
-  encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-  return encoded_jwt
+    if expires_delta is None:
+        expires_delta = timedelta(minutes=settings.access_token_expire_minutes)
+
+    exp = now + expires_delta
+    to_encode.update(
+        {
+            "iss": settings.jwt_issuer,
+            "aud": settings.jwt_audience,
+            "iat": int(now.timestamp()),
+            "exp": int(exp.timestamp()),
+            "jti": str(uuid4()),
+            "typ": "access",
+        }
+    )
+
+    return jwt.encode(to_encode, settings.jwt_secret, algorithm=JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> Optional[Dict[str, Any]]:
-  """
-  Decodează și validează un JWT.
-  - Returnează payload-ul dacă token-ul este valid și neexpirat.
-  - Returnează None dacă este invalid / expirat.
-  """
-  try:
-      payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-      return payload
-  except JWTError:
-      return None
+    """
+    Decode + verify JWT.
+    Returnează payload sau None dacă invalid/expirat.
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[JWT_ALGORITHM],
+            audience=settings.jwt_audience,
+            issuer=settings.jwt_issuer,
+        )
+        return payload
+    except JWTError:
+        return None
+
+
+def generate_random_token(length: int = 64) -> str:
+    """
+    Token random URL-safe.
+    Folosit pentru refresh tokens și email verification tokens.
+    """
+    # secrets.token_urlsafe(n) ≈ n bytes; pentru ~64 chars, dăm 48 bytes.
+    return secrets.token_urlsafe(max(32, length))
+
+
+def hash_token(token: str) -> str:
+    """
+    Hash SHA-256(token + TOKEN_PEPPER).
+    În DB salvăm doar hash-ul.
+    """
+    raw = f"{token}{settings.token_pepper}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def constant_time_equal(a: str, b: str) -> bool:
+    """
+    Comparație constant-time (evită timing leaks).
+    """
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
