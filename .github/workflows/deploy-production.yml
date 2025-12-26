@@ -5,7 +5,40 @@ on:
 
 jobs:
   deploy:
+    # Rulează pe runner-ul tău self-hosted (staging) și face deploy pe prod prin SSH.
     runs-on: [self-hosted, staging]
+
+    # Evită să rămână jobul blocat dacă SSH se agață.
+    timeout-minutes: 20
+
+    # Nu vrem 2 deploy-uri simultane spre PROD.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
     steps:
       - name: Deploy PROD via SSH (forced command)
-        run: ssh -i /home/deploy/.ssh/prod_deploy_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new deploy@145.223.81.39
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # NOTE:
+          # - Dacă ai "forced command" în authorized_keys pe PROD, comanda remote e ignorată,
+          #   dar conexiunea tot declanșează deploy-ul (sigur).
+          # - Dacă NU ai forced command, atunci rulăm explicit scriptul de deploy.
+          #
+          # Debug SSH:
+          #   adaugă temporar: -vvv
+          #
+          # Probleme frecvente:
+          # - host key mismatch: șterge intrarea din ~/.ssh/known_hosts pe runner
+          # - permisiuni cheie: chmod 600 /home/deploy/.ssh/prod_deploy_key
+          #
+          ssh -T \
+            -i /home/deploy/.ssh/prod_deploy_key \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=10 \
+            -o ServerAliveCountMax=3 \
+            -o StrictHostKeyChecking=accept-new \
+            deploy@145.223.81.39 "sudo /usr/local/bin/deploy_prod.sh"
