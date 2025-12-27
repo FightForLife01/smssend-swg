@@ -19,7 +19,7 @@ Deploy:
 | [x] | [x] | INF-03 | VPS | Firewall (UFW) + fail2ban | UFW + `/etc/fail2ban/jail.local` | Allow 22 (IP allowlist), 80/443 public |
 | [x] | [x] | INF-04 | Deploy | Nginx reverse proxy + TLS Let’s Encrypt | `/etc/nginx/sites-available/*` + certbot | Domenii separate: staging vs prod |
 | [x] | [x] | INF-05 | Deploy | Systemd service backend + Nginx proxy /api + /static | `/etc/systemd/system/smssend-backend.service` + nginx vhost | Backend doar pe 127.0.0.1 |
-| [x] | [ ] | INF-06 | Deploy | CI/CD staging (auto) + strategie deploy fără API public | `.github/workflows/deploy-staging.yml` + runner | Prod: NU auto pe main (controlat) |
+| [x] | [x] | INF-06 | Deploy | CI/CD staging (auto) + strategie deploy fără API public | `.github/workflows/deploy-staging.yml` + runner | Prod: NU auto pe main (controlat) |
 | [ ] | [ ] | INF-07 | Config | `.env` separat staging/prod (secrets) | `/opt/smssend/.env` pe fiecare VPS | staging=TEST Stripe, prod=LIVE Stripe (de verificat/curățat) |
 
 | [ ] | [ ] | DB-01 | DB | Postgres instalat pe ambele VPS | (infra) | User+DB separate |
